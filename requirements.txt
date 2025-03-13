@@ -1,0 +1,5 @@
+flask
+tinydb
+aiohttp
+python-dotenv
+requests

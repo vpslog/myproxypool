@@ -22,6 +22,22 @@ fi
 
 echo "Detected public IP: $MYIP"
 
+#!/bin/bash
+
+# 检查 Docker 是否已安装
+if ! command -v docker &> /dev/null
+then
+    # 使用 curl 下载并执行 Docker 安装脚本
+    curl -fsSL https://get.docker.com | sudo sh
+
+    # 启动 Docker 服务
+    sudo systemctl start docker
+
+    # 设置 Docker 开机自启动
+    sudo systemctl enable docker
+fi
+
+
 # 启动 3proxy 容器
 docker run -d --restart=always \
     -p "3128:3128/tcp" \

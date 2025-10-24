@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from tinydb import TinyDB, Query
 import asyncio
 import aiohttp
@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 # 加载环境变量
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 db = TinyDB('db.json')
 FREQUENCE = int(os.getenv("FREQUENCE", 60))
 IPQS_KEY = os.getenv("IPQS_KEY")
@@ -21,14 +21,11 @@ USERNAME = os.getenv("USERNAME")
 PASSWORD = os.getenv("PASSWORD")
 SERVER_IP = os.getenv("SERVER_IP")
 
-# 启动时打印客户端安装命令
 def print_client_installation_instructions():
     script_url = "https://raw.githubusercontent.com/vpslog/myproxypool/refs/heads/main/register_proxy.sh"
     print("\n--- Client Installation Instructions ---\n")
     print("Run the following command on your client machine:")
-    print(f"""
-bash <(curl -s {script_url}) {SERVER_IP} {TOKEN} {USERNAME} {PASSWORD}
-    """)
+    print(f"bash <(curl -s {script_url}) {SERVER_IP} {TOKEN} {USERNAME} {PASSWORD}")
 
 
 
@@ -70,9 +67,41 @@ def get_ip_quality(ip):
     except Exception:
         return {}
 
-@app.route('/add', methods=['POST'])
+@app.route('/')
+def index():
+    """提供前端页面"""
+    return send_from_directory('static', 'index.html')
+
+
+@app.route('/proxies', methods=['GET'])
+def get_proxies():
+    """获取代理列表"""
+    if not validate_token(request.headers.get("Authorization")):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    mode = request.args.get("mode", "json")
+    count = int(request.args.get("count", 10))
+    sort_by = request.args.get("sort_by", "latency")
+    filters = request.args.get("filter", "")
+
+    with lock:
+        proxies = db.all()
+        if filters:
+            regions = filters.split(",")
+            proxies = [p for p in proxies if p.get("info", {}).get("regionName") in regions]
+
+        if sort_by in ["latency", "quality"]:
+            proxies = sorted(proxies, key=lambda x: x.get(sort_by) or float('inf'))
+
+        proxies = proxies[:count]
+
+    if mode == "url":
+        return "\n".join([f"http://{USERNAME}:{PASSWORD}@{p['ip']}" for p in proxies])
+    return jsonify(proxies)
+
+@app.route('/proxies', methods=['POST'])
 def add_proxy():
-    """添加代理 IP"""
+    """添加代理"""
     if not validate_token(request.headers.get("Authorization")):
         return jsonify({"error": "Unauthorized"}), 403
 
@@ -98,31 +127,16 @@ def add_proxy():
 
     return jsonify({"message": "IP added successfully"}), 201
 
-@app.route('/get', methods=['GET'])
-def get_proxies():
-    """获取代理 IP"""
+@app.route('/proxies/<ip>', methods=['DELETE'])
+def delete_proxy(ip):
+    """删除代理"""
     if not validate_token(request.headers.get("Authorization")):
         return jsonify({"error": "Unauthorized"}), 403
 
-    mode = request.args.get("mode", "json")
-    count = int(request.args.get("count", 10))
-    sort_by = request.args.get("sort_by", "latency")  # 可选：latency 或 quality
-    filters = request.args.get("filter", "")  # 逗号分隔的区域列表
-
     with lock:
-        proxies = db.all()
-        if filters:
-            regions = filters.split(",")
-            proxies = [p for p in proxies if p.get("info", {}).get("regionName") in regions]
+        db.remove(Query().ip == ip)
 
-        if sort_by in ["latency", "quality"]:
-            proxies = sorted(proxies, key=lambda x: x.get(sort_by) or float('inf'))
-
-        proxies = proxies[:count]
-
-    if mode == "url":
-        return "\n".join([f"http://{USERNAME}:{PASSWORD}@{p['ip']}" for p in proxies])
-    return jsonify(proxies)
+    return jsonify({"message": "Proxy deleted successfully"})
 
 def proxy_checker_loop():
     """后台定时任务，检测代理 IP 状态"""
@@ -143,4 +157,4 @@ if __name__ == "__main__":
     # 启动后台检测线程
     print_client_installation_instructions()
     threading.Thread(target=proxy_checker_loop, daemon=True).start()
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000,debug=True)

@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Proxy Pool | 代理服务器池</title>
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Grid.js -->
+    <link href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
+    <script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
+
+    <!-- PapaParse -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+    <style>
+body {
+  background: #f8f9fa;
+}
+
+#table .gridjs-th,
+#table .gridjs-td {
+  white-space: nowrap;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-available {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.status-unavailable {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.latency-good {
+  color: #047857;
+}
+
+.latency-medium {
+  color: #d97706;
+}
+
+.latency-bad {
+  color: #dc2626;
+}
+    </style>
+  </head>
+  <body class="text-slate-900">
+    <div id="app" class="max-w-7xl mx-auto p-4">
+      <header class="mb-6 flex justify-between items-center">
+        <div>
+          <h1 class="text-2xl font-semibold">Proxy Pool | 代理服务器池</h1>
+        </div>
+        <div class="topbar flex gap-4 text-sm items-center">
+          <input v-model="token" @input="saveToken" class="rounded border p-2" placeholder="Enter token" />
+          <a href="https://github.com/vpslog/myproxypool" target="_blank" class="text-2xl text-blue-600 hover:underline">GitHub</a>
+        </div>
+      </header>
+      <section class="mb-4">
+        <div class="flex flex-wrap gap-2 justify-between items-center">
+          <input v-model="filterText" class="rounded border p-2 flex-1 min-w-[200px]" placeholder="全局搜索" />
+          <div class="flex gap-2 items-center">
+            <button @click="refreshProxies" class="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700">刷新</button>
+          </div>
+          <select v-model="pageSize" class="rounded border p-2">
+            <option value="10">10 / 页</option>
+            <option value="25">25 / 页</option>
+            <option value="50">50 / 页</option>
+            <option value="100">100 / 页</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="table-wrap bg-white rounded shadow p-4">
+        <div id="table"></div>
+        <div v-if="error" class="mt-3 text-red-600">错误：{{ error }}</div>
+        <div v-if="loading" class="mt-3 text-slate-600">加载中...</div>
+      </section>
+
+    </div>
+
+    <script>
+const { createApp } = Vue;
+
+createApp({
+  data() {
+    return {
+      apiUrl: '/proxies',
+      columns: ['ip', 'location', 'available', 'latency', 'last_checked', 'actions'],
+      proxies: [],
+      grid: null,
+      error: '',
+      loading: false,
+      filterText: '',
+      pageSize: 25,
+      token: localStorage.getItem('token') || ''
+    };
+  },
+  watch: {
+    filterText() { this.applyGridOptions(); },
+    pageSize() { this.applyGridOptions(); }
+  },
+  mounted() {
+    this.loadProxies();
+  },
+  methods: {
+    saveToken() {
+      localStorage.setItem('token', this.token);
+    },
+    async loadProxies() {
+      this.error = '';
+      this.loading = true;
+      try {
+        const res = await fetch(this.apiUrl, {
+          headers: {
+            'Authorization': this.token || ''
+          }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const data = await res.json();
+        this.proxies = data;
+        this.renderGrid();
+      } catch (err) {
+        this.error = err.message;
+      } finally {
+        this.loading = false;
+      }
+    },
+    renderGrid() {
+      if (this.grid) {
+        this.grid.updateConfig({
+          data: this.getFilteredData(),
+          pagination: {
+            limit: parseInt(this.pageSize)
+          }
+        }).forceRender();
+      } else {
+        this.grid = new gridjs.Grid({
+          columns: [
+            { name: 'IP', id: 'ip' },
+            { name: '位置', id: 'location' },
+            {
+              name: '状态',
+              id: 'available',
+              formatter: (cell) => {
+                if (cell === null) return gridjs.html('<span>未知</span>');
+                return gridjs.html(
+                  `<span class="status-badge ${cell ? 'status-available' : 'status-unavailable'}">
+                    ${cell ? '可用' : '不可用'}
+                  </span>`
+                );
+              }
+            },
+            {
+              name: '延迟',
+              id: 'latency',
+              formatter: (cell) => {
+                if (cell === null) return '-';
+                let latencyClass = 'latency-good';
+                if (cell > 300) latencyClass = 'latency-bad';
+                else if (cell > 100) latencyClass = 'latency-medium';
+                return gridjs.html(`<span class="${latencyClass}">${cell.toFixed(2)} ms</span>`);
+              }
+            },
+            {
+              name: '最后检查',
+              id: 'last_checked',
+              formatter: (cell) => {
+                if (!cell) return '-';
+                return new Date(cell).toLocaleString();
+              }
+            },
+            {
+              name: '操作',
+              formatter: (_, row) => {
+                return gridjs.html(`
+                  <button class="px-2 py-1 text-xs bg-red-600 text-white rounded"
+                    onclick="app.deleteProxy('${row.cells[0].data}')">
+                    删除
+                  </button>
+                `);
+              }
+            }
+          ],
+          data: this.getFilteredData(),
+          search: true,
+          sort: true,
+          pagination: {
+            limit: parseInt(this.pageSize)
+          },
+          className: {
+            table: 'w-full'
+          }
+        }).render(document.getElementById('table'));
+      }
+    },
+    getFilteredData() {
+      if (!this.filterText) return this.proxies;
+      const filter = this.filterText.toLowerCase();
+      return this.proxies.filter(proxy => {
+        return Object.values(proxy).some(val => {
+          if (val === null || val === undefined) return false;
+          return String(val).toLowerCase().includes(filter);
+        });
+      });
+    },
+    applyGridOptions() {
+      if (this.grid) {
+        this.grid.updateConfig({
+          data: this.getFilteredData(),
+          pagination: {
+            limit: parseInt(this.pageSize)
+          }
+        }).forceRender();
+      }
+    },
+    refreshProxies() {
+      this.loadProxies();
+    },
+    async deleteProxy(ip) {
+      if (!confirm(`确定要删除 IP ${ip} 吗？`)) return;
+
+      try {
+        const res = await fetch(`${this.apiUrl}/${ip}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': this.token || ''
+          }
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || `HTTP ${res.status}`);
+        }
+
+        this.loadProxies();
+      } catch (err) {
+        this.error = `删除代理失败: ${err.message}`;
+      }
+    }
+  }
+}).mount('#app');
+    </script>
+  </body>
+</html>

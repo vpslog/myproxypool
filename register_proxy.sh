@@ -55,7 +55,7 @@ fi
 echo "3proxy container started successfully."
 
 # 提交代理 IP 到服务端
-curl -X POST http://$SERVERIP:5000/add \
+curl -X POST http://$SERVERIP:5000/proxies \
     -H "Authorization: $SERVERTOKEN" \
     -H "Content-Type: application/json" \
     -d "{\"ip\": \"$MYIP\"}"

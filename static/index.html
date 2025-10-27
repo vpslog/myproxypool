@@ -104,7 +104,7 @@ createApp({
   data() {
     return {
       apiUrl: '/proxies',
-      columns: ['ip', 'location', 'available', 'latency', 'last_checked', 'actions'],
+      columns: ['ip', 'countryCode', 'location', 'provider', 'available', 'latency', 'last_checked', 'actions'],
       proxies: [],
       grid: null,
       error: '',
@@ -120,6 +120,7 @@ createApp({
   },
   mounted() {
     this.loadProxies();
+    window.__deleteProxy = (ip) => this.deleteProxy(ip);
   },
   methods: {
     saveToken() {
@@ -156,7 +157,9 @@ createApp({
         this.grid = new gridjs.Grid({
           columns: [
             { name: 'IP', id: 'ip' },
+            { name: '国家', id: 'countryCode' },
             { name: '位置', id: 'location' },
+            { name: '提供商', id: 'provider' },
             {
               name: '状态',
               id: 'available',
@@ -175,9 +178,9 @@ createApp({
               formatter: (cell) => {
                 if (cell === null) return '-';
                 let latencyClass = 'latency-good';
-                if (cell > 300) latencyClass = 'latency-bad';
-                else if (cell > 100) latencyClass = 'latency-medium';
-                return gridjs.html(`<span class="${latencyClass}">${cell.toFixed(2)} ms</span>`);
+                if (cell > 0.3) latencyClass = 'latency-bad';
+                else if (cell > 0.1) latencyClass = 'latency-medium';
+                return gridjs.html(`<span class="${latencyClass}">${(cell * 1000).toFixed(2)} ms</span>`);
               }
             },
             {
@@ -185,7 +188,7 @@ createApp({
               id: 'last_checked',
               formatter: (cell) => {
                 if (!cell) return '-';
-                return new Date(cell).toLocaleString();
+                return new Date(cell * 1000).toLocaleString();
               }
             },
             {
@@ -193,7 +196,7 @@ createApp({
               formatter: (_, row) => {
                 return gridjs.html(`
                   <button class="px-2 py-1 text-xs bg-red-600 text-white rounded"
-                    onclick="app.deleteProxy('${row.cells[0].data}')">
+                     onclick="window.__deleteProxy('${row.cells[0].data}')">
                     删除
                   </button>
                 `);
@@ -201,7 +204,7 @@ createApp({
             }
           ],
           data: this.getFilteredData(),
-          search: true,
+          // search: true,
           sort: true,
           pagination: {
             limit: parseInt(this.pageSize)
@@ -213,14 +216,24 @@ createApp({
       }
     },
     getFilteredData() {
-      if (!this.filterText) return this.proxies;
-      const filter = this.filterText.toLowerCase();
-      return this.proxies.filter(proxy => {
-        return Object.values(proxy).some(val => {
-          if (val === null || val === undefined) return false;
-          return String(val).toLowerCase().includes(filter);
-        });
+      const toRow = (proxy) => ({
+        ip: proxy.ip,
+        countryCode: proxy.info?.countryCode || '-',
+        location: proxy.info ? `${proxy.info.region || ''} ${proxy.info.city || ''}`.trim() : '-',
+        provider: proxy.info?.org || '-',
+        available: proxy.available,
+        latency: proxy.latency,
+        last_checked: proxy.last_checked
       });
+
+      const rows = this.proxies.map(toRow);
+
+      if (!this.filterText) return rows;
+
+      const filter = this.filterText.toLowerCase();
+      return rows.filter(row =>
+        Object.values(row).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(filter))
+      );
     },
     applyGridOptions() {
       if (this.grid) {

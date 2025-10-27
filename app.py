@@ -21,12 +21,19 @@ USERNAME = os.getenv("USERNAME")
 PASSWORD = os.getenv("PASSWORD")
 SERVER_IP = os.getenv("SERVER_IP")
 
+# 启动时打印客户端安装命令
 def print_client_installation_instructions():
     script_url = "https://raw.githubusercontent.com/vpslog/myproxypool/refs/heads/main/register_proxy.sh"
     print("\n--- Client Installation Instructions ---\n")
     print("Run the following command on your client machine:")
-    print(f"bash <(curl -s {script_url}) {SERVER_IP} {TOKEN} {USERNAME} {PASSWORD}")
-
+    print(f"""
+bash <(curl -s {script_url}) {SERVER_IP} {TOKEN} {USERNAME} {PASSWORD}
+    """)
+    print("\n--- Using Instructions ---\n")
+    print("Run the following command to get proxy list:")
+    print(f"""
+curl -X GET http://{SERVER_IP}:5000/proxies -H "Authorization: {TOKEN}" -H "Content-Type: application/json"
+    """)
 
 
 lock = threading.Lock()
@@ -38,7 +45,7 @@ async def check_proxy(proxy_ip):
     """检查代理的可用性和延迟"""
     url = f"https://{TEST_DOMAIN}"
     start_time = time.time()
-    proxy_url = f"http://{USERNAME}:{PASSWORD}@{proxy_ip}"
+    proxy_url = f"http://{USERNAME}:{PASSWORD}@{proxy_ip}:3128"
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, proxy=proxy_url, timeout=5) as response:
@@ -93,10 +100,10 @@ def get_proxies():
         if sort_by in ["latency", "quality"]:
             proxies = sorted(proxies, key=lambda x: x.get(sort_by) or float('inf'))
 
-        proxies = proxies[:count]
+        # proxies = proxies[:count]
 
     if mode == "url":
-        return "\n".join([f"http://{USERNAME}:{PASSWORD}@{p['ip']}" for p in proxies])
+        return "\n".join([f"http://{USERNAME}:{PASSWORD}@{p['ip']}:3128" for p in proxies])
     return jsonify(proxies)
 
 @app.route('/proxies', methods=['POST'])

@@ -130,7 +130,7 @@ createApp({
       this.error = '';
       this.loading = true;
       try {
-        const res = await fetch(this.apiUrl, {
+        const res = await fetch(`${this.apiUrl}?mode=json`, {
           headers: {
             'Authorization': this.token || ''
           }

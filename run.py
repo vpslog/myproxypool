@@ -9,10 +9,10 @@ import requests
 from dotenv import load_dotenv
 
 # 加载环境变量
-load_dotenv()
+load_dotenv('data/.env')
 
 app = Flask(__name__, static_folder='static')
-db = TinyDB('db.json')
+db = TinyDB('data/db.json')
 FREQUENCE = int(os.getenv("FREQUENCE", 60))
 IPQS_KEY = os.getenv("IPQS_KEY")
 TOKEN = os.getenv("TOKEN")
@@ -86,7 +86,7 @@ def get_proxies():
     if not validate_token(request.headers.get("Authorization")):
         return jsonify({"error": "Unauthorized"}), 403
 
-    mode = request.args.get("mode", "json")
+    mode = request.args.get("mode", "url")
     count = int(request.args.get("count", 10))
     sort_by = request.args.get("sort_by", "latency")
     filters = request.args.get("filter", "")

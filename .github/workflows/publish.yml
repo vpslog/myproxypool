@@ -31,7 +31,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/local-monitor:latest
+          tags: ghcr.io/${{ github.repository_owner }}/myproxypool:latest
 
       - name: Show published image
-        run: echo "Published to ghcr.io/${{ github.repository_owner }}/local-monitor:latest"
+        run: echo "Published to ghcr.io/${{ github.repository_owner }}/myproxypool:latest"

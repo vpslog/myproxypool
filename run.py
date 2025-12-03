@@ -165,4 +165,4 @@ if __name__ == "__main__":
     # 启动后台检测线程
     print_client_installation_instructions()
     threading.Thread(target=proxy_checker_loop, daemon=True).start()
-    app.run(host="0.0.0.0", port=5000,debug=True)
+    app.run(host="0.0.0.0", port=5056,debug=True)

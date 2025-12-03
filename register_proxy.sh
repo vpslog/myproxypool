@@ -2,13 +2,14 @@
 
 # 获取输入参数
 SERVERIP=$1
-SERVERTOKEN=$2
-PROXY_USER=$3
-PROXY_PASSWORD=$4
+SERVERPORT=$2
+SERVERTOKEN=$3
+PROXY_USER=$4
+PROXY_PASSWORD=$5
 
 # 检查参数
 if [ -z "$SERVERIP" ] || [ -z "$SERVERTOKEN" ] || [ -z "$PROXY_USER" ] || [ -z "$PROXY_PASSWORD" ]; then
-    echo "Usage: $0 <SERVER_IP> <SERVER_TOKEN> <PROXY_USER> <PROXY_PASSWORD>"
+    echo "Usage: $0 <SERVER_IP> <SERVERPORT> <SERVER_TOKEN> <PROXY_USER> <PROXY_PASSWORD>"
     exit 1
 fi
 
@@ -55,7 +56,7 @@ fi
 echo "3proxy container started successfully."
 
 # 提交代理 IP 到服务端
-curl -X POST http://$SERVERIP:5000/proxies \
+curl -X POST http://$SERVERIP:$SERVERPORT/proxies \
     -H "Authorization: $SERVERTOKEN" \
     -H "Content-Type: application/json" \
     -d "{\"ip\": \"$MYIP\"}"

@@ -20,6 +20,7 @@ TEST_DOMAIN = os.getenv("TEST_DOMAIN", "cloudflare.com")
 USERNAME = os.getenv("USERNAME")
 PASSWORD = os.getenv("PASSWORD")
 SERVER_IP = os.getenv("SERVER_IP")
+SERVER_PORT = os.getenv("SERVER_PORT")
 
 # 启动时打印客户端安装命令
 def print_client_installation_instructions():
@@ -27,12 +28,12 @@ def print_client_installation_instructions():
     print("\n--- Client Installation Instructions ---\n")
     print("Run the following command on your client machine:")
     print(f"""
-bash <(curl -s {script_url}) {SERVER_IP} {TOKEN} {USERNAME} {PASSWORD}
+bash <(curl -s {script_url}) {SERVER_IP} {SERVER_PORT} {TOKEN} {USERNAME} {PASSWORD}
     """)
     print("\n--- Using Instructions ---\n")
     print("Run the following command to get proxy list:")
     print(f"""
-curl -X GET http://{SERVER_IP}:5000/proxies -H "Authorization: {TOKEN}" -H "Content-Type: application/json"
+curl -X GET http://{SERVER_IP}:{SERVER_PORT}/proxies -H "Authorization: {TOKEN}" -H "Content-Type: application/json"
     """)
 
 

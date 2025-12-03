@@ -32,3 +32,7 @@ TEST_DOMAIN=
 客户端使用 docker 运行 3proxy 容器
 
 docker run -d --restart=always     -p "3128:3128/tcp"     -p "1080:1080/tcp"     -e "PROXY_LOGIN=<PROXY_USER>"     -e "PROXY_PASSWORD=<PROXY_PASSWORD>" --name 3proxy     ghcr.io/tarampampam/3proxy:latest
+
+
+
+ docker run -p 5056:5056 -v /app/myproxypool:/app/data ghcr.io/vpslog/myproxypool:latest

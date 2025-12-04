@@ -148,8 +148,9 @@ def delete_proxy(ip):
 
 def proxy_checker_loop():
     """后台定时任务，检测代理 IP 状态"""
+    print("Starting proxy checker loop...")
     while True:
-        time.sleep(FREQUENCE)
+        
         with lock:
             proxies = db.all()
         for proxy in proxies:
@@ -160,9 +161,11 @@ def proxy_checker_loop():
                     "latency": result["latency"],
                     "last_checked": time.time(),
                 }, Query().ip == proxy["ip"])
+        print(f"Checked {len(proxies)} proxies.")
+        time.sleep(FREQUENCE)
 
 if __name__ == "__main__":
     # 启动后台检测线程
     print_client_installation_instructions()
     threading.Thread(target=proxy_checker_loop, daemon=True).start()
-    app.run(host="0.0.0.0", port=5056,debug=True)
+    app.run(host="0.0.0.0", port=5056,debug=False)

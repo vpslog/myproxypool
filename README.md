@@ -35,4 +35,4 @@ docker run -d --restart=always     -p "3128:3128/tcp"     -p "1080:1080/tcp"    
 
 
 
- docker run -p 5056:5056 -v /app/myproxypool:/app/data --name=myproxypool ghcr.io/vpslog/myproxypool:latest 
+ docker run -p 5056:5056 -v /app/myproxypool:/app/data --name=myproxypool -d ghcr.io/vpslog/myproxypool:latest 

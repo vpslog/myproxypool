@@ -150,18 +150,30 @@ def proxy_checker_loop():
     """后台定时任务，检测代理 IP 状态"""
     print("Starting proxy checker loop...")
     while True:
-        
-        with lock:
-            proxies = db.all()
-        for proxy in proxies:
-            result = asyncio.run(check_proxy(proxy["ip"]))
+        try:
             with lock:
-                db.update({
-                    "available": result["available"],
-                    "latency": result["latency"],
-                    "last_checked": time.time(),
-                }, Query().ip == proxy["ip"])
-        print(f"Checked {len(proxies)} proxies.")
+                proxies = db.all()
+            if proxies:
+                # 并发检查所有代理
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    results = loop.run_until_complete(asyncio.gather(*[check_proxy(proxy["ip"]) for proxy in proxies], return_exceptions=True))
+                    for proxy, result in zip(proxies, results):
+                        if isinstance(result, Exception):
+                            print(f"Error checking proxy {proxy['ip']}: {result}")
+                            result = {"available": False, "latency": None}
+                        with lock:
+                            db.update({
+                                "available": result["available"],
+                                "latency": result["latency"],
+                                "last_checked": time.time(),
+                            }, Query().ip == proxy["ip"])
+                finally:
+                    loop.close()
+            print(f"Checked {len(proxies)} proxies.")
+        except Exception as e:
+            print(f"Error in proxy checker loop: {e}")
         time.sleep(FREQUENCE)
 
 if __name__ == "__main__":
@@ -169,3 +181,4 @@ if __name__ == "__main__":
     print_client_installation_instructions()
     threading.Thread(target=proxy_checker_loop, daemon=True).start()
     app.run(host="0.0.0.0", port=5056,debug=False)
+
